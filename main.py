@@ -18,6 +18,7 @@ amzDF = sqlCtx.read.json("data/amazon-meta.small-1000000.json")
 # amzDF = sqlCtx.read.json("data/amazon-meta.small.json")
 # amzDF = sqlCtx.read.json("data/amazon-meta.json")
 amzDF.registerTempTable("purchases")
+
 # print('---- Schema')
 # amzDF.printSchema()
 # print('-/-- Schema')
@@ -32,7 +33,7 @@ try:
     if len(sys.argv) <= 1:
         raise Exception ('Argument 1, utility name, must be specified')
 
-    if sys.argv[1] == 'search-title':
+    if sys.argv[1] == 'search-title': # python main.py search-title "harry potter"
 
         # Arguments
         ## 2 - query string
@@ -42,11 +43,15 @@ try:
             print('ERRORR!!!!!!')
 
         ## Search by title, partial matching allowed, case insensitive
-        searchTitles = sqlCtx.sql(""" SELECT * FROM purchases WHERE lower(title) LIKE "%{}%" """.format(sys.argv[2]))
-        for i in searchTitles.collect(): print("Matched Product: " + i.Id + ", title: " + i.title)
+        searchTitles = sqlCtx.sql(""" SELECT ASIN, title FROM purchases WHERE lower(title) LIKE "%{}%" """.format(sys.argv[2])) \
+            .distinct()
+
+        for i in searchTitles.collect():
+            rowCount += 1
+            print(str(rowCount) + " - Matched Product: " + i.ASIN + ", title: " + i.title)
 
 
-    if sys.argv[1] == 'search-review-count':
+    if sys.argv[1] == 'search-review-count': # python main.py search-review-count ">" 15
 
         # Arguments
         ## 2 - operator, eg. >, >=, =, <, <=
@@ -57,10 +62,12 @@ try:
             print('ERRORR!!!!!!')
 
         ## Search by X review count
-        searchReviewCount = sqlCtx.sql(" SELECT * FROM purchases WHERE reviews.total {} {} ".format(sys.argv[2], sys.argv[3]))
-        for i in searchReviewCount.collect(): print ("Matched Product: " + i.Id + ", Reviews: " + i.reviews.total + ", title: " + i.title)
+        searchReviewCount = sqlCtx.sql(" SELECT * FROM purchases WHERE reviews_summary.total {} {} ".format(sys.argv[2], sys.argv[3]))
+        for i in searchReviewCount.collect():
+            rowCount += 1
+            print (str(rowCount) + " - Matched Product: " + i.ASIN + ", Reviews: " + i.reviews_summary.total + ", title: " + i.title)
 
-    if sys.argv[1] == 'search-review-avg-rating':
+    if sys.argv[1] == 'search-review-avg-rating': # python main.py search-review-avg-rating ">" 3
 
         # Arguments
         ## 2 - operator, eg. >, >=, =, <, <=
@@ -71,8 +78,12 @@ try:
             print('ERRORR!!!!!!')
 
         ## Search by X review count
-        searchReviewCount = sqlCtx.sql(" SELECT * FROM purchases WHERE reviews.avg_rating {} {} ".format(sys.argv[2], sys.argv[3]))
-        for i in searchReviewCount.collect(): print ("Matched Product: " + i.Id + ", Rating avg: " + i.reviews.avg_rating + ", title: " + i.title)
+        searchReviewCount = sqlCtx.sql(" SELECT ASIN, reviews_summary, title  FROM purchases WHERE reviews_summary.avg_rating {} {} ".format(sys.argv[2], sys.argv[3])) \
+            .distinct()
+
+        for i in searchReviewCount.collect():
+            rowCount += 1
+            print (str(rowCount) + " - Matched Product: " + i.ASIN + ", Rating avg: " + i.reviews_summary.avg_rating + ", title: " + i.title)
 
     if sys.argv[1] == 'search-category':
 
@@ -84,8 +95,6 @@ try:
             print('ERRORR!!!!!!')
 
         # Search by category, partial matching allowed, case insensitive
-        # searchTitles = sqlCtx.sql(""" SELECT * FROM purchases WHERE lower(categories) LIKE "%{}%" """.format(sys.argv[2]))
-        # for i in searchTitles.collect(): print("Matched Product: " + i.Id + ", title: " + i.title)
         searchTitles = amzDF.withColumn("categories", explode("categories")) \
             .select(col("categories.*"), "Id", "title") \
             .where(""" lower(name) LIKE "%{}%" """.format(sys.argv[2].lower())) \
@@ -96,26 +105,29 @@ try:
             rowCount += 1
             print(str(rowCount) + " - Matched Product: " + i.Id + ", title: " + i.title + ", Category: " + i.name)
 
-    if sys.argv[1] == 'search-customer-rating':
+    if sys.argv[1] == 'search-customer-rating': # python main.py search-customer-rating ">" 3
 
         # Arguments
         ## 2 - operator, eg. >, >=, =, <, <=
-        ## 3 - avg rating
+        ## 3 - rating
 
         if len(sys.argv) < 4:
             # todo - should throw an error
             print('ERRORR!!!!!!')
 
-        searchCustomerId = amzDF.withColumn("reviews", explode("reviews")).select("*", col("reviews.*")) \
-            .where(""" rating{}{} """.format(sys.argv[2], sys.argv[3]))
+        searchCustomerId = amzDF.withColumn("reviews", explode("reviews")) \
+            .select("title", "ASIN", col("reviews.*")) \
+            .where(""" rating{}{} """.format(sys.argv[2], sys.argv[3])) \
+            .distinct()
 
-        for i in searchCustomerId.collect(): print("Matched Product: " + i.Id + ", Customer: " + i.cutomer + ", Rating: " + i.rating + ", title: " + i.title)
+        for i in searchCustomerId.collect():
+            rowCount += 1
+            print(str(rowCount) + " - Matched Product: " + i.ASIN + ", Customer: " + i.cutomer + ", Rating: " + i.rating + ", title: " + i.title)
 
     if sys.argv[1] == 'search-customer':
 
         # Arguments
-        ## 2 - operator, eg. >, >=, =, <, <=
-        ## 3 - avg rating
+        ## 2 - customer ID#
 
         if len(sys.argv) < 3:
             # todo - should throw an error
@@ -124,7 +136,9 @@ try:
         searchCustomerId = amzDF.withColumn("reviews", explode("reviews")).select("*", col("reviews.*"))\
             .where(""" cutomer="{}" """.format(sys.argv[2]))
 
-        for i in searchCustomerId.collect(): print("Matched Product: " + i.Id + ", Customer: " + i.cutomer + ", title: " + i.title)
+        for i in searchCustomerId.collect():
+            rowCount += 1
+            print(str(rowCount) + " - Matched Product: " + i.Id + ", Customer: " + i.cutomer + ", title: " + i.title)
 
     if sys.argv[1] == 'recommend-customer':
 
@@ -135,44 +149,33 @@ try:
             # todo - should throw an error
             print('ERRORR!!!!!!')
 
-        # searchCustomerId = amzDF.withColumn("reviews", explode("reviews")) \
-        #     .withColumn("categories", explode("categories")) \
-        #     .select(col("reviews.*"), col("categories"), "title") \
-        #     .where(""" cutomer="{}" """.format(sys.argv[2]))
-        # searchCustomerId.printSchema()
-        # searchCustomerId.show()
-
-        searchCustomerReviewsById = amzDF.withColumn("reviews", explode("reviews")) \
-            .select(col("reviews.*"), "ASIN", "categories", "title", "similar") \
-            .where(""" cutomer="{}" """.format(sys.argv[2]))
-        # searchCustomerReviewsById.printSchema()
-        # searchCustomerReviewsById.show()
-
         recommendableCategories = []
         recommendableCategoriesProductsTracker = []
         similarProductsTracker = []
         recommendableCategoriesProducts = []
         similarProducts = []
 
+        searchCustomerReviewsById = amzDF.withColumn("reviews", explode("reviews")) \
+            .select(col("reviews.*"), "ASIN", "categories", "title", "similar") \
+            .where(""" cutomer="{}" """.format(sys.argv[2]))
+
         print("Because you have favorably reviewed:")
         for i in searchCustomerReviewsById.collect():
             rowCount += 1
-            # print(str(rowCount) + " Matched Customer: " + i.cutomer + ", rating: " + i.rating + ", title: " + i.title + " # of Categories for Product: " + str(len(i.categories)))
 
             if int(i.rating) > 3:
                 print("-- Title: " + i.title + "(" + i.ASIN + ") - Rating: " + i.rating)
 
                 categoryCount = 0
                 categoriesLength = len(i.categories)
+
                 for category in i.categories:
                     categoryCount += 1
-                    # print("++Category: " + category)
                     if category not in recommendableCategories:
-                        if categoriesLength == categoryCount: # only adds the last category, todo - not good logic that represents the "Most" important categories
+                        if categoriesLength == categoryCount: # only adds the last category, # todo - not good logic to determine what the "Most" important categories are
                             recommendableCategories.append(category.id)
 
                 for similarProduct in i.similar:
-                    # print("++Category: " + category)
                     if similarProduct not in similarProductsTracker:
                         similarProductsTracker.append(similarProduct)
 
@@ -181,20 +184,14 @@ try:
         #
         recommendableCategoriesString = ''
 
-        # print('Recommendable categories: ')
         for category in recommendableCategories:
-            # print("-- " + category)
             recommendableCategoriesString += '\'' + category + '\','
 
         recommendableCategoriesString = recommendableCategoriesString.rstrip(',')
 
-        # print(recommendableCategoriesString)
-
         recommendedProductsByCategory = amzDF.withColumn("categories", explode("categories")) \
             .select(col("categories.*"), "ASIN", "title") \
             .where(""" id IN ({}) """.format(recommendableCategoriesString))
-        # recommendedProductsByCategory.printSchema()
-        # recommendedProductsByCategory.show()
 
         rowCount = 0
         for product in recommendedProductsByCategory.collect():
@@ -202,19 +199,15 @@ try:
                 recommendableCategoriesProducts.append(product)
                 recommendableCategoriesProductsTracker.append(product.ASIN)
                 rowCount += 1
-                # print(str(rowCount) + " | Title: " + product.title + "(" + product.ASIN + ")")
 
-        print("Product recommendations based on your favorable reviews found: " + str(len(recommendableCategoriesProducts)))
-        #
         # Show top 5 recommended products
-        #
+        print("Product recommendations based on your favorable reviews found: " + str(len(recommendableCategoriesProducts)))
         for product in random.sample(recommendableCategoriesProducts, 5):
             print("-- Title: " + product.title + "(" + product.ASIN + ")")
+
         #
         # / Other products, related category
         #
-
-
 
         #
         # Similar Products
@@ -222,27 +215,23 @@ try:
         similarProductsString = ''
 
         for product in similarProductsTracker:
-            # print("-- " + product)
             similarProductsString += '\'' + product + '\','
 
         similarProductsString = similarProductsString.rstrip(',')
 
         recommendedProductsBySimilarity = amzDF.select("ASIN", "title") \
             .where(""" ASIN IN ({}) """.format(similarProductsString))
-        # recommendedProducts.printSchema()
-        # recommendedProducts.show()
 
         rowCount = 0
-        # print("Similar items you might like!")
         for product in recommendedProductsBySimilarity.collect():
             rowCount += 1
             similarProducts.append(product)
-            # print(str(rowCount) + " | Title: " + product.title + "(" + product.ASIN + ")")
 
-        print('Similar products found: ' + str(len(similarProducts)))
         # Show top 5 similar products
+        print('Similar products found: ' + str(len(similarProducts)))
         for product in random.sample(similarProducts, 5):
             print("-- Title: " + product.title + "(" + product.ASIN + ")")
+
         #
         # / Similar Products
         #
@@ -252,8 +241,3 @@ try:
 
 except Exception as err:
     print(err)
-
-
-
-
-# A1GIL64QK68WKL - 17 hits
