@@ -15,10 +15,13 @@ import json
 # if __name__ == '__main__':
     # print_hi('PyCharm')
 
-file1 = open('amazon-meta.txt', 'r')
+file1 = open('data/amazon-meta.txt', 'r')
 Lines = file1.readlines()
 
-jsonFile = open('data/amazon-meta.small.json', 'w')
+maxJsonObjCount = 0
+maxJsonObj = 1000000
+
+jsonFile = open('data/amazon-meta.small-' + str(maxJsonObj) + '.json', 'w')
 
 
 structureStarted = False
@@ -34,8 +37,7 @@ count = 0
 
 totalLines = len(Lines)
 # totalLines = 42
-maxJsonObjCount = 0
-maxJsonObj = 30
+
 
 # jsonFile.writelines('[\n')
 
@@ -45,7 +47,7 @@ reviewsCollectionStarted = False
 # Strips the newline character
 for line in Lines:
 
-    if maxJsonObj == maxJsonObjCount:
+    if maxJsonObj == maxJsonObjCount and maxJsonObj > 0:
         break
 
     count += 1
@@ -108,7 +110,10 @@ for line in Lines:
                         continue
                     else:
                         if category.strip() not in categoryList:
-                            jsonObjectDictionary['categories'].append(category.strip())
+
+                            name = re.findall(r"(.*?)\[", category.strip())
+                            id = re.findall(r"\[(.*?)\]", category.strip())
+                            jsonObjectDictionary['categories'].append({'name': name[0], 'id': id[0]})
 
             elif reviewsCollectionStarted:
                 reviewList = line.replace("   ", " ").replace("  ", " ").strip().split(" ")
@@ -158,7 +163,7 @@ for line in Lines:
                 jsonObjectDictionary['reviews_summary'] = {}
                 jsonObjectDictionary['reviews'] = []
 
-            if (count < totalLines and maxJsonObjCount < maxJsonObj):
+            if (count < totalLines and maxJsonObjCount < maxJsonObj and maxJsonObj > 0):
             #     jsonFile.writelines(json.dumps(jsonObjectDictionary) + ',\n')
                 jsonFile.writelines(json.dumps(jsonObjectDictionary) + '\n')
             else:

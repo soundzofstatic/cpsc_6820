@@ -15,7 +15,7 @@ import json
 # if __name__ == '__main__':
     # print_hi('PyCharm')
 
-file1 = open('amazon-meta.txt', 'r')
+file1 = open('data/amazon-meta.txt', 'r')
 Lines = file1.readlines()
 
 jsonFile = open('amazon-meta.json', 'w')
