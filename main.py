@@ -1,4 +1,5 @@
 import sys
+import random
 from pyspark import SparkContext, SparkConf, SQLContext
 from pyspark.sql.functions import col, explode
 
@@ -17,9 +18,9 @@ amzDF = sqlCtx.read.json("data/amazon-meta.small-1000000.json")
 # amzDF = sqlCtx.read.json("data/amazon-meta.small.json")
 # amzDF = sqlCtx.read.json("data/amazon-meta.json")
 amzDF.registerTempTable("purchases")
-print('---- Schema')
-amzDF.printSchema()
-print('-/-- Schema')
+# print('---- Schema')
+# amzDF.printSchema()
+# print('-/-- Schema')
 
 rowCount = 0
 
@@ -86,10 +87,14 @@ try:
         # searchTitles = sqlCtx.sql(""" SELECT * FROM purchases WHERE lower(categories) LIKE "%{}%" """.format(sys.argv[2]))
         # for i in searchTitles.collect(): print("Matched Product: " + i.Id + ", title: " + i.title)
         searchTitles = amzDF.withColumn("categories", explode("categories")) \
-            .select(col("categories"), "*") \
-            .where(""" lower(categories) LIKE "%{}%" """.format(sys.argv[2].lower()))
+            .select(col("categories.*"), "Id", "title") \
+            .where(""" lower(name) LIKE "%{}%" """.format(sys.argv[2].lower())) \
+            .distinct()
 
-        for i in searchTitles.collect(): print("Matched Product: " + i.Id + ", title: " + i.title + ", Category: " + i.categories)
+        rowCount = 0
+        for i in searchTitles.collect():
+            rowCount += 1
+            print(str(rowCount) + " - Matched Product: " + i.Id + ", title: " + i.title + ", Category: " + i.name)
 
     if sys.argv[1] == 'search-customer-rating':
 
@@ -124,8 +129,7 @@ try:
     if sys.argv[1] == 'recommend-customer':
 
         # Arguments
-        ## 2 - operator, eg. >, >=, =, <, <=
-        ## 3 - avg rating
+        ## 2 - customer ID#
 
         if len(sys.argv) < 3:
             # todo - should throw an error
@@ -141,99 +145,107 @@ try:
         searchCustomerReviewsById = amzDF.withColumn("reviews", explode("reviews")) \
             .select(col("reviews.*"), "ASIN", "categories", "title", "similar") \
             .where(""" cutomer="{}" """.format(sys.argv[2]))
-        searchCustomerReviewsById.printSchema()
+        # searchCustomerReviewsById.printSchema()
         # searchCustomerReviewsById.show()
 
         recommendableCategories = []
+        recommendableCategoriesProductsTracker = []
+        similarProductsTracker = []
+        recommendableCategoriesProducts = []
         similarProducts = []
 
+        print("Because you have favorably reviewed:")
         for i in searchCustomerReviewsById.collect():
             rowCount += 1
-            print(str(rowCount) + " Matched Customer: " + i.cutomer + ", rating: " + i.rating + ", title: " + i.title + " # of Categories for Product: " + str(len(i.categories)))
+            # print(str(rowCount) + " Matched Customer: " + i.cutomer + ", rating: " + i.rating + ", title: " + i.title + " # of Categories for Product: " + str(len(i.categories)))
 
             if int(i.rating) > 3:
+                print("-- Title: " + i.title + "(" + i.ASIN + ") - Rating: " + i.rating)
 
+                categoryCount = 0
+                categoriesLength = len(i.categories)
                 for category in i.categories:
+                    categoryCount += 1
                     # print("++Category: " + category)
                     if category not in recommendableCategories:
-                        recommendableCategories.append(category)
+                        if categoriesLength == categoryCount: # only adds the last category, todo - not good logic that represents the "Most" important categories
+                            recommendableCategories.append(category.id)
 
                 for similarProduct in i.similar:
                     # print("++Category: " + category)
-                    if similarProduct not in similarProducts:
-                        similarProducts.append(similarProduct)
+                    if similarProduct not in similarProductsTracker:
+                        similarProductsTracker.append(similarProduct)
 
+        #
+        # Other products, related category
+        #
         recommendableCategoriesString = ''
 
-        print('Recommendable categories: ')
+        # print('Recommendable categories: ')
         for category in recommendableCategories:
             # print("-- " + category)
             recommendableCategoriesString += '\'' + category + '\','
 
         recommendableCategoriesString = recommendableCategoriesString.rstrip(',')
 
-        print(recommendableCategoriesString)
+        # print(recommendableCategoriesString)
 
-        # recommendedProductsByCategory = amzDF.select("ASIN", "title", "categories") \
-        #     .where(""" categories IN ({}) """.format(recommendableCategoriesString))
+        recommendedProductsByCategory = amzDF.withColumn("categories", explode("categories")) \
+            .select(col("categories.*"), "ASIN", "title") \
+            .where(""" id IN ({}) """.format(recommendableCategoriesString))
         # recommendedProductsByCategory.printSchema()
         # recommendedProductsByCategory.show()
 
-        # recommendedProductsByCategory = amzDF.withColumn("categories", explode("categories")) \
-        #     .select(col("categories"), "ASIN", "title") \
-        #     .where(""" categories = "{}" """.format(recommendableCategoriesString))
-        recommendedProductsByCategory = amzDF.withColumn("categories", explode("categories")) \
-            .select(col("categories"), "ASIN", "title") \
-            .where(""" categories LIKE ({}) """.format(recommendableCategoriesString))
-        recommendedProductsByCategory.printSchema()
-        recommendedProductsByCategory.show()
+        rowCount = 0
+        for product in recommendedProductsByCategory.collect():
+            if product.ASIN not in recommendableCategoriesProductsTracker:
+                recommendableCategoriesProducts.append(product)
+                recommendableCategoriesProductsTracker.append(product.ASIN)
+                rowCount += 1
+                # print(str(rowCount) + " | Title: " + product.title + "(" + product.ASIN + ")")
 
+        print("Product recommendations based on your favorable reviews found: " + str(len(recommendableCategoriesProducts)))
         #
-        # rowCount = 0
-        # print("Because you liked XYZ")
-        # for i in recommendedProductsByCategory.collect():
-        #     rowCount += 1
-        #     print(str(rowCount) + " | Title: " + i.title + "(" + i.ASIN + ")")
+        # Show top 5 recommended products
+        #
+        for product in random.sample(recommendableCategoriesProducts, 5):
+            print("-- Title: " + product.title + "(" + product.ASIN + ")")
+        #
+        # / Other products, related category
+        #
+
+
 
         #
         # Similar Products
         #
-        # similarProductsString = ''
-        #
-        # print('Similar product: ')
-        # for product in similarProducts:
-        #     # print("-- " + product)
-        #     similarProductsString += '\'' + product + '\','
-        #
-        # similarProductsString = similarProductsString.rstrip(',')
-        #
-        # recommendedProductsBySimilarity = amzDF.select("ASIN", "title") \
-        #     .where(""" ASIN IN ({}) """.format(similarProductsString))
-        # # recommendedProducts.printSchema()
-        # # recommendedProducts.show()
-        #
-        # rowCount = 0
+        similarProductsString = ''
+
+        for product in similarProductsTracker:
+            # print("-- " + product)
+            similarProductsString += '\'' + product + '\','
+
+        similarProductsString = similarProductsString.rstrip(',')
+
+        recommendedProductsBySimilarity = amzDF.select("ASIN", "title") \
+            .where(""" ASIN IN ({}) """.format(similarProductsString))
+        # recommendedProducts.printSchema()
+        # recommendedProducts.show()
+
+        rowCount = 0
         # print("Similar items you might like!")
-        # for i in recommendedProductsBySimilarity.collect():
-        #     rowCount += 1
-        #     print(str(rowCount) + " | Title: " + i.title + "(" + i.ASIN + ")")
+        for product in recommendedProductsBySimilarity.collect():
+            rowCount += 1
+            similarProducts.append(product)
+            # print(str(rowCount) + " | Title: " + product.title + "(" + product.ASIN + ")")
+
+        print('Similar products found: ' + str(len(similarProducts)))
+        # Show top 5 similar products
+        for product in random.sample(similarProducts, 5):
+            print("-- Title: " + product.title + "(" + product.ASIN + ")")
         #
         # / Similar Products
         #
-
-        # searchCustomerId2 = amzDF.withColumn("reviews", explode("reviews")) \
-        #     .select(col("reviews.*"), "ASIN", "categories", "title", "similar") \
-        #     .where(""" ASIN IN (0738700827,1567184960,1567182836,0738700525,0738700940) """)
-        # searchCustomerId2.printSchema()
-        # # searchCustomerId2.show()
-        #
-        # for i in searchCustomerId2.collect():
-        #     rowCount += 1
-        #
-        #     print(str(rowCount) + " Matched Customer: " + i.cutomer + ", title: " + i.title + " #ASIN: " + i.ASIN)
-        #     # for j in i.categories:
-        #     #     print("++Category: " + j)
-
 
     # todo - Best X sellers of a certain category
     # todo - The number of customers co-purchasing same product of a user.
