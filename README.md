@@ -14,3 +14,7 @@ The easiest way to get this project up and running is to create a Docker contain
 
 ### Recalling the container
 To recall the container in a different work session just issue `docker-compose up --build`. The image will be cached locally so the setup is a few seconds.
+
+
+## Data
+Data for this project can be dowloaded from: [Stanford University SNAP](http://snap.stanford.edu/data/amazon-meta.html ). An example of the data is provided in the file [amazon-meta-sample.txt](amazon-meta-sample.txt) 
