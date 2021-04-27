@@ -85,7 +85,7 @@ try:
             rowCount += 1
             print (str(rowCount) + " - Matched Product: " + i.ASIN + ", Rating avg: " + i.reviews_summary.avg_rating + ", title: " + i.title)
 
-    if sys.argv[1] == 'search-category':
+    if sys.argv[1] == 'search-category': # python main.py search-category hebrew
 
         # Arguments
         ## 2 - query string
@@ -124,7 +124,7 @@ try:
             rowCount += 1
             print(str(rowCount) + " - Matched Product: " + i.ASIN + ", Customer: " + i.cutomer + ", Rating: " + i.rating + ", title: " + i.title)
 
-    if sys.argv[1] == 'search-customer':
+    if sys.argv[1] == 'search-customer': # python main.py search-customer A1GIL64QK68WKL
 
         # Arguments
         ## 2 - customer ID#
@@ -140,7 +140,7 @@ try:
             rowCount += 1
             print(str(rowCount) + " - Matched Product: " + i.Id + ", Customer: " + i.cutomer + ", title: " + i.title)
 
-    if sys.argv[1] == 'recommend-customer':
+    if sys.argv[1] == 'recommend-customer': # python main.py recommend-customer A1GIL64QK68WKL
 
         # Arguments
         ## 2 - customer ID#
@@ -235,9 +235,6 @@ try:
         #
         # / Similar Products
         #
-
-    # todo - Best X sellers of a certain category
-    # todo - The number of customers co-purchasing same product of a user.
 
 except Exception as err:
     print(err)

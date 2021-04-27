@@ -1,20 +1,3 @@
-# This is a sample Python script.
-
-# Press ⌃R to execute it or replace it with your code.
-# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
-
-import re
-import json
-
-# def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    # print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
-
-
-# Press the green button in the gutter to run the script.
-# if __name__ == '__main__':
-    # print_hi('PyCharm')
-
 file1 = open('data/amazon-meta.txt', 'r')
 Lines = file1.readlines()
 
@@ -22,7 +5,6 @@ maxJsonObjCount = 0
 maxJsonObj = 1000000
 
 jsonFile = open('data/amazon-meta.small-' + str(maxJsonObj) + '.json', 'w')
-
 
 structureStarted = False
 structureEnded = False
@@ -36,10 +18,8 @@ jsonObjectDictionary = {}
 count = 0
 
 totalLines = len(Lines)
-# totalLines = 42
 
-
-# jsonFile.writelines('[\n')
+# jsonFile.writelines('[\n') # Used for a true syntax JSON file, one that SparkSQL does not like
 
 categoriesCollectionStarted = False
 reviewsCollectionStarted = False
@@ -65,7 +45,6 @@ for line in Lines:
         reviewsCollectionStarted = False
         maxJsonObjCount += 1
 
-    # print("Line{}: {}".format(count, line.strip()))
     if not(emptyLine):
 
         leadingSpaces = len(line) - len(line.lstrip())
@@ -90,8 +69,6 @@ for line in Lines:
                     value = re.findall(r"\: (.*)", keyValue.lstrip())
                     reviewsDistionary[key[0].replace(" ", "_")] = value[0]
 
-                # reviewsDistionary['reviews'] = []
-                # jsonObjectDictionary[regexKeySearch[0]] = reviewsDistionary
                 jsonObjectDictionary['reviews_summary'] = reviewsDistionary
                 jsonObjectDictionary['reviews'] = []
 
@@ -124,9 +101,6 @@ for line in Lines:
                     'votes': reviewList[6],
                     'helpful': reviewList[8]
                 }
-
-                # jsonObjectDictionary['reviews']['reviews'].append(reviewDisctionary)
-                # jsonObjectDictionary['reviews_summary'].append(reviewDisctionary)
                 jsonObjectDictionary['reviews'].append(reviewDisctionary)
 
     # JSON Object close
@@ -164,7 +138,7 @@ for line in Lines:
                 jsonObjectDictionary['reviews'] = []
 
             if (count < totalLines and maxJsonObjCount < maxJsonObj and maxJsonObj > 0):
-            #     jsonFile.writelines(json.dumps(jsonObjectDictionary) + ',\n')
+            #     jsonFile.writelines(json.dumps(jsonObjectDictionary) + ',\n')  # Used for a true syntax JSON file, one that SparkSQL does not like
                 jsonFile.writelines(json.dumps(jsonObjectDictionary) + '\n')
             else:
                 jsonFile.writelines(json.dumps(jsonObjectDictionary))
@@ -179,14 +153,7 @@ for line in Lines:
         jsonObjectString = ''
         jsonObjectDictionary = {}
 
-# jsonFile.writelines(']')
+# jsonFile.writelines(']')  # Used for a true syntax JSON file, one that SparkSQL does not like
 
 jsonFile.writelines(jsonContent)
 jsonFile.close()
-jsonFile.close()
-
-
-
-
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
