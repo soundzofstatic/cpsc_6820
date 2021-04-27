@@ -1,10 +1,13 @@
-file1 = open('data/amazon-meta.txt', 'r')
+import re
+import json
+
+file1 = open('amazon-meta-sample.txt', 'r')
 Lines = file1.readlines()
 
 maxJsonObjCount = 0
 maxJsonObj = 1000000
 
-jsonFile = open('data/amazon-meta.small-' + str(maxJsonObj) + '.json', 'w')
+jsonFile = open('data/amazon-meta-sample.json', 'w')
 
 structureStarted = False
 structureEnded = False
