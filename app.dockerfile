@@ -1,3 +1,4 @@
+# Modified from https://stackoverflow.com/questions/65731995/build-docker-image-with-pyspark-3-0-1-with-hadoop-3-2
 FROM python:3.6-alpine3.10
 
 ARG SPARK_VERSION=3.0.2
